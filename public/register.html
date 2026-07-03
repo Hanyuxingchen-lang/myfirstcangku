@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>注册 - 分布式大文件分片上传系统</title>
+    <style>
+        :root {
+            --klein-blue: #002fa7;
+            --klein-light: rgba(0, 47, 167, 0.15);
+            --glass-white: rgba(255, 255, 255, 0.72);
+            --glass-border: rgba(0, 47, 167, 0.12);
+            --shadow-soft: 0 8px 32px rgba(0, 47, 167, 0.08);
+            --shadow-deep: 0 12px 48px rgba(0, 47, 167, 0.14);
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+        }
+        body {
+            min-height: 100vh;
+            background: #ffffff;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .tech-bg {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background-image: 
+                linear-gradient(var(--glass-border) 1px, transparent 1px),
+                linear-gradient(90deg, var(--glass-border) 1px, transparent 1px);
+            background-size: 60px 60px;
+            animation: bg-flow 18s linear infinite;
+            opacity: 0.6;
+        }
+        .light-particle {
+            position: fixed;
+            border-radius: 50%;
+            background: radial-gradient(circle, var(--klein-blue) 0%, transparent 70%);
+            filter: blur(12px);
+            opacity: 0.25;
+            z-index: 0;
+            animation: float 12s ease-in-out infinite alternate;
+        }
+        .p1 { width: 280px; height: 280px; top: 10%; left: 8%; animation-delay: 0s; }
+        .p2 { width: 180px; height: 180px; bottom: 15%; right: 12%; animation-delay: -4s; }
+        .p3 { width: 120px; height: 120px; top: 60%; left: 18%; animation-delay: -8s; }
+
+        .reg-card {
+            width: 460px;
+            padding: 48px 42px;
+            position: relative;
+            z-index: 10;
+            background: var(--glass-white);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            box-shadow: var(--shadow-deep);
+            transition: all 0.4s cubic-bezier(0.2, 0, 0.2, 1);
+        }
+        .reg-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 16px 64px rgba(0, 47, 167, 0.18);
+            border-color: rgba(0, 47, 167, 0.2);
+        }
+        .card-title {
+            font-size: 26px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            background: linear-gradient(135deg, #000 0%, var(--klein-blue) 100%);
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 36px;
+            text-align: center;
+        }
+        .form-item {
+            margin-bottom: 24px;
+        }
+        .form-item label {
+            display: block;
+            font-size: 14px;
+            color: #001a52;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        .form-item input {
+            width: 100%;
+            padding: 16px 18px;
+            border: 1px solid var(--glass-border);
+            border-radius: 14px;
+            background: rgba(255,255,255,0.85);
+            font-size: 15px;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+        .form-item input:focus {
+            border-color: var(--klein-blue);
+            box-shadow: 0 0 0 3px rgba(0,47,167,0.1);
+        }
+        .submit-btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 14px;
+            background: var(--klein-blue);
+            color: #fff;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 6px 20px rgba(0, 47, 167, 0.22);
+            margin-top: 8px;
+        }
+        .submit-btn:hover {
+            filter: brightness(1.08);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 28px rgba(0, 47, 167, 0.28);
+        }
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+        .switch-tip {
+            text-align: center;
+            margin-top: 28px;
+            font-size: 14px;
+            color: #444;
+        }
+        .switch-tip a {
+            color: var(--klein-blue);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .switch-tip a:hover {
+            text-decoration: underline;
+        }
+        .msg-tip {
+            text-align: center;
+            font-size: 14px;
+            margin-bottom: 16px;
+            min-height: 20px;
+        }
+        .error { color: #d93025; }
+        .success { color: #008856; }
+
+        @keyframes bg-flow {
+            0% { background-position: 0 0; }
+            100% { background-position: 60px 60px; }
+        }
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(40px, -30px) scale(1.12); }
+        }
+    </style>
+</head>
+<body>
+    <div class="tech-bg"></div>
+    <div class="light-particle p1"></div>
+    <div class="light-particle p2"></div>
+    <div class="light-particle p3"></div>
+
+    <div class="reg-card">
+        <h2 class="card-title">账号注册</h2>
+        <div class="msg-tip" id="msg"></div>
+        <div class="form-item">
+            <label>设置用户名</label>
+            <input type="text" id="username" placeholder="3-16位字母数字">
+        </div>
+        <div class="form-item">
+            <label>设置密码</label>
+            <input type="password" id="password" placeholder="至少6位密码">
+        </div>
+        <div class="form-item">
+            <label>确认密码</label>
+            <input type="password" id="repwd" placeholder="再次输入密码">
+        </div>
+        <button class="submit-btn" onclick="register()">完成注册</button>
+        <div class="switch-tip">
+            已有账号？<a href="login.html">前往登录</a>
+        </div>
+    </div>
+
+    <script>
+        const msgDom = document.getElementById('msg');
+        window.onload = function() {
+            const loginUser = localStorage.getItem('uploadUser');
+            if(loginUser) location.href = 'index.html';
+        }
+        function showMsg(text, type='error') {
+            msgDom.innerText = text;
+            msgDom.className = `msg-tip ${type}`;
+        }
+        function register() {
+            const username = document.getElementById('username').value.trim();
+            const pwd = document.getElementById('password').value.trim();
+            const repwd = document.getElementById('repwd').value.trim();
+            // 简单校验
+            if(username.length <3 || username.length>16) return showMsg('用户名长度3~16位');
+            if(pwd.length <6) return showMsg('密码至少6位');
+            if(pwd !== repwd) return showMsg('两次密码输入不一致');
+            // 判断是否已注册
+            const oldUser = localStorage.getItem('uploadRegisterUser');
+            if(oldUser) {
+                const user = JSON.parse(oldUser);
+                if(user.username === username) return showMsg('该用户名已被注册');
+            }
+            // 保存注册信息
+            const newUser = {username, password:pwd};
+            localStorage.setItem('uploadRegisterUser', JSON.stringify(newUser));
+            showMsg('注册成功，正在跳转登录页...', 'success');
+            setTimeout(()=>{
+                location.href = 'login.html';
+            },1000)
+        }
+    </script>
+</body>
+</html>
