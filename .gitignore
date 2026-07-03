@@ -1,0 +1,6 @@
+node_modules/
+uploads/
+nohup.out
+server.log
+.DS_Store
+.env

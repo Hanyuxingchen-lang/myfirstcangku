@@ -1,0 +1,13 @@
+CREATE DATABASE IF NOT EXISTS chunk_upload DEFAULT CHARACTER SET utf8mb4;
+USE chunk_upload;
+
+CREATE TABLE IF NOT EXISTS file_info (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    file_name VARCHAR(255) NOT NULL COMMENT '文件名称',
+    file_md5 VARCHAR(255) NOT NULL UNIQUE COMMENT '文件唯一MD5',
+    file_size BIGINT NOT NULL COMMENT '文件大小',
+    chunk_total INT NOT NULL COMMENT '总分片数',
+    save_path VARCHAR(255) NOT NULL COMMENT '最终存储路径',
+    status TINYINT DEFAULT 1 COMMENT '1:上传中 2:上传完成',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='文件元数据表';

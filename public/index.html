@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>分布式大文件分片上传系统</title>
+    <style>
+        .box{width: 800px;margin: 50px auto;}
+        .progress{height: 10px;background: #eee;border-radius: 5px;margin: 20px 0;}
+        .progress-bar{height: 10px;width: 0%;background: #409eff;border-radius: 5px;}
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h2>基于双节点集群的大文件分片上传演示</h2>
+        <input type="file" id="file" />
+        <button onclick="uploadFile()">开始上传</button>
+        <div class="progress"><div class="progress-bar" id="bar"></div></div>
+        <div id="tip"></div>
+    </div>
+
+    <script>
+        // 内置离线MD5，彻底抛弃境外CDN，无外网也能运行
+        const CHUNK_SIZE = 1024 * 1024 * 2; // 2M分片
+        let fileMd5 = '';
+
+        // 离线文件MD5计算（原生实现，无需任何外网依赖）
+        async function getFileMd5(file) {
+            const buffer = await file.arrayBuffer();
+            const hashBuffer = await crypto.subtle.digest('MD5', buffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        // 分片上传
+        async function uploadFile() {
+            const file = document.getElementById('file').files[0];
+            if(!file) return alert('请选择文件');
+            document.getElementById('tip').innerText = '正在计算文件MD5...';
+            fileMd5 = await getFileMd5(file);
+
+            // 查询已上传分片（断点续传）
+            const res = await fetch('/api/chunk/check', {
+                method:'POST',
+                body:JSON.stringify({fileMd5}),
+                headers:{'Content-Type':'application/json'}
+            })
+            const {data} = await res.json();
+            const uploadedList = data;
+
+            const totalChunk = Math.ceil(file.size / CHUNK_SIZE);
+            document.getElementById('tip').innerText = '开始分片上传';
+
+            // 循环上传分片
+            for(let i=0;i<totalChunk;i++){
+                if(uploadedList.includes(i+'')) continue;
+                const start = i * CHUNK_SIZE;
+                const end = Math.min(start + CHUNK_SIZE, file.size);
+                const chunkFile = file.slice(start,end);
+
+                const form = new FormData();
+                form.append('file',chunkFile);
+                form.append('fileMd5',fileMd5);
+                form.append('chunkIndex',i);
+                form.append('totalChunk',totalChunk);
+                form.append('fileName',file.name);
+                form.append('fileSize',file.size);
+
+                await fetch('/api/chunk/upload',{
+                    method:'POST',
+                    body:form
+                })
+
+                // 更新进度条
+                const percent = Math.floor(((i+1)/totalChunk)*100);
+                document.getElementById('bar').style.width = percent+'%';
+                document.getElementById('tip').innerText = `已上传 ${percent}%`;
+            }
+
+            // 上传完成合并文件
+            document.getElementById('tip').innerText = '正在合并文件...';
+            const mergeRes = await fetch('/api/chunk/merge',{
+                method:'POST',
+                body:JSON.stringify({fileMd5}),
+                headers:{'Content-Type':'application/json'}
+            })
+            const mergeData = await mergeRes.json();
+            if(mergeData.code === 200){
+                document.getElementById('tip').innerText = '文件上传合并完成！';
+            }else{
+                document.getElementById('tip').innerText = mergeData.msg;
+            }
+        }
+    </script>
+</body>
+</html>

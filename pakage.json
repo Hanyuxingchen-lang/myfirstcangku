@@ -1,0 +1,20 @@
+{
+  "name": "distributed-chunk-upload",
+  "version": "1.0.0",
+  "description": "基于双节点集群Redis状态同步的大文件分片上传系统",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "build": "npm install",
+    "deploy": "sh deploy.sh"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mysql2": "^3.6.5",
+    "redis": "^4.6.10",
+    "multer": "^1.4.5-lts.1",
+    "crypto": "^1.0.1",
+    "fs-extra": "^11.1.1",
+    "cors": "^2.8.5"
+  }
+}
