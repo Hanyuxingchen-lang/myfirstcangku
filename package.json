@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "bull": "^4.16.5",
+    "express-fileupload": "^1.5.2",
+    "fs-extra": "^11.3.6",
+    "ioredis": "^5.11.1",
+    "mysql2": "^3.22.5",
+    "pidusage": "^4.0.1"
+  }
+}

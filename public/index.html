@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>分布式大文件分片上传系统</title>
     <style>
         :root {
@@ -15,6 +15,7 @@
             --color-wait: #b0c4de;
             --color-doing: #002fa7;
             --color-done: #00965e;
+            --color-fail: #d83636;
         }
         * {
             margin: 0;
@@ -28,16 +29,15 @@
             overflow-x: hidden;
             position: relative;
         }
-        /* 全局数据流SVG容器 悬浮在所有面板中间 */
+        /* 数据流SVG */
         .data-flow-svg {
             position: fixed;
             inset: 0;
             width: 100%;
             height: 100%;
             z-index: 5;
-            pointer-events: none; /* 不遮挡鼠标点击页面按钮 */
+            pointer-events: none;
         }
-        /* 流动线条基础样式 */
         .flow-line {
             fill: none;
             stroke: var(--klein-blue);
@@ -47,13 +47,12 @@
             animation: lineFlow 1.2s linear infinite;
             opacity: 0.4;
         }
-        /* 数据流光点 */
         .flow-dot {
             r: 4;
             fill: var(--klein-blue);
             filter: drop-shadow(0 0 6px var(--klein-blue));
         }
-        /* 全局科技背景 */
+        /* 背景 */
         .tech-bg {
             position: fixed;
             inset: 0;
@@ -78,14 +77,14 @@
         .p2 { width: 180px; height: 180px; bottom: 15%; right: 12%; animation-delay: -4s; }
         .p3 { width: 120px; height: 120px; top: 60%; left: 18%; animation-delay: -8s; }
 
-        /* 顶部导航栏 */
+        /* 导航栏 */
         .navbar {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 72px;
-            padding: 0 48px;
+            padding: 0 24px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -96,7 +95,7 @@
             border-bottom: 1px solid var(--glass-border);
         }
         .nav-title {
-            font-size: 20px;
+            font-size: 16px;
             font-weight: 600;
             background: linear-gradient(135deg, #000 0%, var(--klein-blue) 100%);
             background-clip: text;
@@ -105,19 +104,20 @@
         .user-wrap {
             display: flex;
             align-items: center;
-            gap: 24px;
+            gap: 12px;
         }
         .username-text {
             color: #001a52;
             font-weight: 500;
+            font-size: 14px;
         }
         .logout-btn {
-            padding: 10px 22px;
+            padding: 8px 14px;
             border: 1px solid var(--klein-blue);
             border-radius: 12px;
             background: transparent;
             color: var(--klein-blue);
-            font-size: 14px;
+            font-size: 13px;
             cursor: pointer;
             transition: all 0.3s ease;
         }
@@ -133,14 +133,17 @@
             align-items: center;
             padding-top: 96px;
             padding-bottom: 40px;
+            padding-left: 24px;
+            padding-right: 24px;
             position: relative;
             z-index: 10;
             gap: 32px;
         }
-        /* 主上传卡片 */
-        .upload-card {
-            width: 920px;
-            padding: 52px 48px;
+        /* 卡片通用自适应 */
+        .upload-card, .panel {
+            width: 100%;
+            max-width: 920px;
+            padding: 36px 24px;
             position: relative;
             background: var(--glass-white);
             backdrop-filter: blur(18px);
@@ -150,34 +153,34 @@
             box-shadow: var(--shadow-deep);
             transition: all 0.4s cubic-bezier(0.2, 0, 0.2, 1);
         }
-        .upload-card:hover {
+        .upload-card:hover, .panel:hover {
             transform: translateY(-6px);
             box-shadow: 0 16px 64px rgba(0, 47, 167, 0.18);
-            border-color: rgba(0, 47, 167, 0.2);
+            border-color: rgba(0, 47, 0.2);
         }
         .card-title {
-            font-size: 28px;
+            font-size: 22px;
             font-weight: 600;
             letter-spacing: 1px;
             background: linear-gradient(135deg, #000 0%, var(--klein-blue) 100%);
             background-clip: text;
             color: transparent;
-            margin-bottom: 40px;
+            margin-bottom: 32px;
             text-align: center;
             line-height: 1.4;
         }
         .file-input-wrap {
             display: flex;
-            align-items: center;
-            gap: 20px;
+            flex-direction: column;
+            gap: 16px;
             margin-bottom: 32px;
         }
         #file {
             display: none;
         }
         .file-label {
-            flex: 1;
-            padding: 18px 24px;
+            width: 100%;
+            padding: 16px 20px;
             border: 1.5px dashed var(--klein-blue);
             border-radius: 14px;
             text-align: center;
@@ -192,7 +195,8 @@
             border-color: var(--klein-blue);
         }
         .upload-btn {
-            padding: 18px 36px;
+            width: 100%;
+            padding: 16px;
             border: none;
             border-radius: 14px;
             background: var(--klein-blue);
@@ -211,7 +215,6 @@
         .upload-btn:active {
             transform: translateY(0);
         }
-        /* 总进度条 */
         .progress-wrap {
             height: 14px;
             background: rgba(0, 47, 167, 0.08);
@@ -236,61 +239,62 @@
             min-height: 24px;
             font-weight: 500;
             letter-spacing: 0.3px;
-            margin-bottom: 32px;
-        }
-        /* 扩展面板通用样式 */
-        .panel {
-            width: 920px;
-            padding: 32px;
-            background: var(--glass-white);
-            backdrop-filter: blur(18px);
-            -webkit-backdrop-filter: blur(18px);
-            border: 1px solid var(--glass-border);
-            border-radius: 24px;
-            box-shadow: var(--shadow-soft);
+            margin-bottom: 24px;
         }
         .panel-title {
-            font-size: 18px;
+            font-size: 17px;
             font-weight: 600;
             color: var(--klein-blue);
             margin-bottom: 20px;
             display: flex;
             align-items: center;
+            justify-content: space-between;
             gap: 10px;
         }
-        /* 1. 文件信息面板 */
+        .info-export-btn{
+            padding:6px 14px;
+            border:1px solid var(--klein-blue);
+            border-radius:8px;
+            background:transparent;
+            color:var(--klein-blue);
+            cursor:pointer;
+        }
+        .info-export-btn:hover{
+            background:var(--klein-light);
+        }
+        /* 文件信息网格 */
         .file-info-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 16px;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
         }
         .info-item {
-            padding: 16px;
+            padding: 14px;
             background: rgba(0,47,167,0.05);
             border-radius: 12px;
             border: 1px solid var(--glass-border);
         }
         .info-label {
-            font-size: 13px;
+            font-size: 12px;
             color: #666;
             margin-bottom: 6px;
         }
         .info-value {
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 500;
             color: #001a52;
             word-break: break-all;
         }
-        /* 2. 分片可视化网格 */
+        /* 分片网格 */
         .chunk-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(32px, 1fr));
-            gap: 8px;
+            grid-template-columns: repeat(auto-fill, minmax(26px, 1fr));
+            gap: 6px;
             min-height: 60px;
         }
         .chunk-block {
-            height: 32px;
-            border-radius: 6px;
+            height: 26px;
+            border-radius: 5px;
             background: var(--color-wait);
             transition: all 0.25s ease;
         }
@@ -301,16 +305,16 @@
         .chunk-done {
             background: var(--color-done);
         }
-        /* 3. 运行日志面板 */
+        /* 日志面板 */
         .log-box {
             margin-top: 16px;
-            height: 160px;
-            padding: 16px;
+            height: 140px;
+            padding: 14px;
             background: #000a20;
             border-radius: 12px;
             overflow-y: auto;
             font-family: Consolas, monospace;
-            font-size: 13px;
+            font-size: 12px;
             color: #89c4ff;
             line-height: 1.6;
         }
@@ -326,67 +330,80 @@
         .log-info {
             color: #89c4ff;
         }
-        /* 动画定义 */
-        @keyframes bg-flow {
-            0% { background-position: 0 0; }
-            100% { background-position: 60px 60px; }
+        /* 测试记录表格样式 */
+        .table-wrap{
+            overflow-x:auto;
         }
-        @keyframes float {
-            0% { transform: translate(0, 0) scale(1); }
-            100% { transform: translate(40px, -30px) scale(1.12); }
+        table{
+            width:100%;
+            border-collapse: collapse;
+            min-width:720px;
         }
-        @keyframes flow-shine {
-            0% { background-position: 0 0; }
-            100% { background-position: 200% 0; }
+        th,td{
+            border:1px solid var(--glass-border);
+            padding:10px 8px;
+            font-size:13px;
+            text-align:center;
         }
-        @keyframes chunk-pulse {
-            0% { opacity: 0.7; transform: scale(0.96); }
-            100% { opacity: 1; transform: scale(1); }
+        th{
+            background:rgba(0,47,167,0.08);
+            color:var(--klein-blue);
         }
-        /* 数据流线条流动动画 */
-        @keyframes lineFlow {
-            0% { stroke-dashoffset: 0; }
-            100% { stroke-dashoffset: -20; }
+        .status-success{color:var(--color-done);font-weight:500;}
+        .status-merging{color:var(--color-doing);}
+        .status-wait{color:#666;}
+        .status-fail{color:var(--color-fail);}
+        .page-bar{
+            margin-top:16px;
+            display:flex;
+            gap:10px;
+            justify-content:center;
+            align-items:center;
         }
+        .page-btn{
+            padding:5px 12px;
+            border:1px solid var(--glass-border);
+            border-radius:6px;
+            background:#fff;
+            cursor:pointer;
+        }
+        .page-btn:disabled{
+            opacity:0.4;
+            cursor:not-allowed;
+        }
+
+        /* 动画 */
+        @keyframes bg-flow {0% { background-position: 0 0; }100% { background-position: 60px 60px; }}
+        @keyframes float {0% { transform: translate(0, 0) scale(1); }100% { transform: translate(40px, -30px) scale(1.12); }}
+        @keyframes flow-shine {0% { background-position: 0 0; }100% { background-position: 200% 0; }}
+        @keyframes chunk-pulse {0% { opacity: 0.7; transform: scale(0.96); }100% { opacity: 1; transform: scale(1); }}
+        @keyframes lineFlow {0% { stroke-dashoffset: 0; }100% { stroke-dashoffset: -20; }}
     </style>
 </head>
 <body>
-    <!-- 新增：三层数据流连接线SVG（核心动效） -->
     <svg class="data-flow-svg" viewBox="0 0 1920 1080">
-        <!-- 第一层：上传卡片 → 文件信息面板 -->
         <path id="path1" class="flow-line" d="M 960 320 L 960 460" />
-        <circle class="flow-dot">
-            <animateMotion dur="2s" repeatCount="indefinite" path="M 960 320 L 960 460" />
-        </circle>
-        <!-- 第二层：文件信息面板 → 分片网格面板 -->
+        <circle class="flow-dot"><animateMotion dur="2s" repeatCount="indefinite" path="M 960 320 L 960 460" /></circle>
         <path id="path2" class="flow-line" d="M 960 540 L 960 680" />
-        <circle class="flow-dot">
-            <animateMotion dur="2.2s" repeatCount="indefinite" path="M 960 540 L 960 680" />
-        </circle>
-        <!-- 第三层：分片网格面板 → 后端日志面板 -->
+        <circle class="flow-dot"><animateMotion dur="2.2s" repeatCount="indefinite" path="M 960 540 L 960 680" /></circle>
         <path id="path3" class="flow-line" d="M 960 760 L 960 900" />
-        <circle class="flow-dot">
-            <animateMotion dur="2.4s" repeatCount="indefinite" path="M 960 760 L 960 900" />
-        </circle>
+        <circle class="flow-dot"><animateMotion dur="2.4s" repeatCount="indefinite" path="M 960 760 L 960 900" /></circle>
     </svg>
 
-    <!-- 全局动态背景 -->
     <div class="tech-bg"></div>
     <div class="light-particle p1"></div>
     <div class="light-particle p2"></div>
     <div class="light-particle p3"></div>
 
-    <!-- 顶部导航 -->
     <div class="navbar">
-        <div class="nav-title">分布式大文件分片上传集群系统</div>
+        <div class="nav-title">分布式大文件分片上传系统</div>
         <div class="user-wrap">
             <span class="username-text" id="userText"></span>
-            <button class="logout-btn" onclick="logout()">退出登录</button>
+            <button class="logout-btn" onclick="logout()">退出</button>
         </div>
     </div>
 
     <div class="container">
-        <!-- 核心上传卡片 -->
         <div class="upload-card">
             <h2 class="card-title">基于双节点集群的大文件分片上传演示</h2>
             <div class="file-input-wrap">
@@ -400,95 +417,123 @@
             <div id="tip" class="tip-text"></div>
         </div>
 
-        <!-- 扩展面板1：文件基础信息 -->
         <div class="panel" id="infoPanel" style="display: none;">
             <h3 class="panel-title">📄 文件基础信息</h3>
             <div class="file-info-grid">
-                <div class="info-item">
-                    <div class="info-label">文件名称</div>
-                    <div class="info-value" id="infoName">-</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">文件大小</div>
-                    <div class="info-value" id="infoSize">-</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">分片总数</div>
-                    <div class="info-value" id="infoChunkTotal">-</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">文件MD5</div>
-                    <div class="info-value" id="infoMd5">-</div>
-                </div>
+                <div class="info-item"><div class="info-label">文件名称</div><div class="info-value" id="infoName">-</div></div>
+                <div class="info-item"><div class="info-label">文件大小</div><div class="info-value" id="infoSize">-</div></div>
+                <div class="info-item"><div class="info-label">分片总数</div><div class="info-value" id="infoChunkTotal">-</div></div>
+                <div class="info-item"><div class="info-label">文件MD5</div><div class="info-value" id="infoMd5">-</div></div>
             </div>
         </div>
 
-        <!-- 扩展面板2：分片可视化动画面板 -->
         <div class="panel" id="chunkPanel" style="display: none;">
             <h3 class="panel-title">📦 分片实时上传可视化</h3>
             <div class="chunk-grid" id="chunkGrid"></div>
-            <div style="display:flex;gap:24px;margin-top:16px;font-size:13px;color:#555;">
-                <span style="display:flex;align-items:center;gap:6px;"><span style="width:14px;height:14px;background:var(--color-wait);border-radius:4px;"></span>待上传</span>
-                <span style="display:flex;align-items:center;gap:6px;"><span style="width:14px;height:14px;background:var(--color-doing);border-radius:4px;"></span>上传中</span>
-                <span style="display:flex;align-items:center;gap:6px;"><span style="width:14px;height:14px;background:var(--color-done);border-radius:4px;"></span>已完成</span>
+            <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:16px;font-size:12px;color:#555;">
+                <span style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;background:var(--color-wait);border-radius:4px;"></span>待上传</span>
+                <span style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;background:var(--color-doing);border-radius:4px;"></span>上传中</span>
+                <span style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;background:var(--color-done);border-radius:4px;"></span>已完成</span>
             </div>
         </div>
 
-        <!-- 扩展面板3：后端交互日志 -->
         <div class="panel" id="logPanel" style="display: none;">
             <h3 class="panel-title">📡 后端分片交互实时日志</h3>
             <div class="log-box" id="logBox"></div>
         </div>
+
+        <!-- 新增：性能测试记录面板（完全新增区块，原有代码不动） -->
+        <div class="panel">
+            <h3 class="panel-title">
+                📊 上传性能实验测试记录
+                <button class="info-export-btn" onclick="exportTableCsv()">导出CSV全部数据</button>
+            </h3>
+            <div class="table-wrap">
+                <table id="recordTable">
+                    <thead>
+                        <tr>
+                            <th>文件MD5</th>
+                            <th>文件名</th>
+                            <th>文件大小</th>
+                            <th>分片数</th>
+                            <th>总耗时(ms)</th>
+                            <th>峰值内存(MB)</th>
+                            <th>任务状态</th>
+                            <th>创建时间</th>
+                            <th>完成时间</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <tr><td colspan="9">正在加载数据...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="page-bar">
+                <button class="page-btn" id="prevBtn" disabled onclick="changePage(-1)">上一页</button>
+                <span id="pageText">第1页 / 共0页</span>
+                <button class="page-btn" id="nextBtn" disabled onclick="changePage(1)">下一页</button>
+            </div>
+        </div>
     </div>
 
     <script>
-        // 数据流动画全局控制函数
+        // 全局数据流动画控制
         function toggleDataFlow(flag) {
             const lines = document.querySelectorAll('.flow-line');
             const dots = document.querySelectorAll('.flow-dot animateMotion');
             if(flag === true) {
-                // 开启流动动画
                 lines.forEach(el => el.style.opacity = "0.55");
                 dots.forEach(el => el.beginElement());
             } else {
-                // 关闭流动动画
                 lines.forEach(el => el.style.opacity = "0");
                 dots.forEach(el => el.endElement());
             }
         }
-
-        // 鉴权：未登录跳转登录页
-        window.onload = function() {
+        // 登录鉴权
+        window.onload = async function() {
             const user = localStorage.getItem('uploadUser');
             if(!user) {
                 location.href = 'login.html';
                 return;
             }
             const userInfo = JSON.parse(user);
-            document.getElementById('userText').innerText = `欢迎，${userInfo.username}`;
-            // 页面初始关闭数据流动画
+            document.getElementById('userText').innerText = `${userInfo.username}`;
             toggleDataFlow(false);
+            // 页面加载自动读取测试记录
+            await loadRecordData();
         }
-        // 退出登录
         function logout() {
             localStorage.removeItem('uploadUser');
             location.href = 'login.html';
         }
 
-        // 全局扩展变量
-        const CHUNK_SIZE = 1024 * 1024 * 2; // 2M分片 原逻辑不变
+        // 上传原有全局变量
+        const CHUNK_SIZE = 1024 * 1024 * 2;
         let fileMd5 = '';
         let currentFile = null;
         let totalChunkCount = 0;
         let uploadedChunkArr = [];
+        // 分页全局变量
+        let currentPage = 1;
+        let pageSize = 12;
+        let totalPage = 0;
+        let allRecordList = [];
+        // 允许上传的文件后缀（可自行增删）
+        const allowExt = ['mp4','mov','avi','mkv','zip','rar','7z','tar','gz','pdf','doc','docx','xls','xlsx','ppt','pptx'];
 
         // 工具：格式化文件大小
         function formatFileSize(bytes) {
+            if (!bytes || bytes <= 0) return '-';
             if (bytes < 1024) return bytes + ' B';
             if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
             return (bytes / 1024 / 1024).toFixed(2) + ' MB';
         }
-        // 工具：写入日志
+        // 校验文件类型
+        function checkFileType(file) {
+            const fileName = file.name;
+            const ext = fileName.split('.').pop().toLowerCase();
+            return allowExt.includes(ext);
+        }
         function addLog(text, type = 'log-info') {
             const logBox = document.getElementById('logBox');
             const line = document.createElement('div');
@@ -498,7 +543,6 @@
             logBox.appendChild(line);
             logBox.scrollTop = logBox.scrollHeight;
         }
-        // 工具：初始化分片可视化网格
         function initChunkGrid(total) {
             totalChunkCount = total;
             const grid = document.getElementById('chunkGrid');
@@ -510,7 +554,6 @@
                 grid.appendChild(block);
             }
         }
-        // 更新单个分片状态
         function updateChunkStatus(index, status) {
             const block = document.querySelector(`.chunk-block[data-index="${index}"]`);
             if(!block) return;
@@ -518,9 +561,6 @@
             if(status === 'doing') block.classList.add('chunk-doing');
             if(status === 'done') block.classList.add('chunk-done');
         }
-
-        // ===================== 原有分片上传核心逻辑【完全无修改，仅插入数据流动画控制】=====================
-        // 离线文件MD5计算（原生实现，无需任何外网依赖）
         async function getFileMd5(file) {
             addLog("开始计算文件MD5哈希值...", 'log-info');
             const buffer = await file.arrayBuffer();
@@ -531,25 +571,27 @@
             return md5Str;
         }
 
-        // 分片上传主入口
+        // 原有上传逻辑 + 新增文件类型校验
         async function uploadFile() {
             const file = document.getElementById('file').files[0];
             if(!file) return alert('请选择文件');
+            // 新增文件类型校验逻辑，匹配报错提示
+            if(!checkFileType(file)){
+                alert("当前不支持该文件类型，请尝试其他文件");
+                return;
+            }
             currentFile = file;
-            // 展示全部扩展面板 + 启动数据流连线动画
             document.getElementById('infoPanel').style.display = 'block';
             document.getElementById('chunkPanel').style.display = 'block';
             document.getElementById('logPanel').style.display = 'block';
             toggleDataFlow(true);
 
-            // 填充文件信息卡片
             document.getElementById('infoName').innerText = file.name;
             document.getElementById('infoSize').innerText = formatFileSize(file.size);
             document.getElementById('tip').innerText = '正在计算文件MD5...';
             fileMd5 = await getFileMd5(file);
             document.getElementById('infoMd5').innerText = fileMd5;
 
-            // 查询已上传分片（断点续传）
             addLog("请求后端接口：查询已上传分片 /api/chunk/check", 'log-info');
             const res = await fetch('/api/chunk/check', {
                 method:'POST',
@@ -564,13 +606,11 @@
             totalChunkCount = totalChunk;
             document.getElementById('infoChunkTotal').innerText = totalChunk;
             initChunkGrid(totalChunk);
-            // 回填已完成分片色块
             uploadedChunkArr.forEach(idx => updateChunkStatus(idx, 'done'));
 
             document.getElementById('tip').innerText = '开始分片上传';
             addLog(`文件总分片数：${totalChunk}，准备循环上传`, 'log-info');
 
-            // 循环上传分片
             for(let i=0;i<totalChunk;i++){
                 if(uploadedChunkArr.includes(i)) {
                     addLog(`分片${i}已存在，跳过上传（断点续传）`, 'log-warn');
@@ -579,7 +619,6 @@
                 const start = i * CHUNK_SIZE;
                 const end = Math.min(start + CHUNK_SIZE, file.size);
                 const chunkFile = file.slice(start,end);
-
                 const form = new FormData();
                 form.append('file',chunkFile);
                 form.append('fileMd5',fileMd5);
@@ -588,25 +627,18 @@
                 form.append('fileName',file.name);
                 form.append('fileSize',file.size);
 
-                // 可视化：标记当前分片上传中
                 updateChunkStatus(i, 'doing');
                 addLog(`开始上传分片${i}，接口 /api/chunk/upload`, 'log-info');
-                await fetch('/api/chunk/upload',{
-                    method:'POST',
-                    body:form
-                })
-                // 上传完成标记
+                await fetch('/api/chunk/upload',{method:'POST',body:form});
                 updateChunkStatus(i, 'done');
                 addLog(`分片${i}上传完成`, 'log-success');
                 uploadedChunkArr.push(i);
 
-                // 更新全局总进度条
                 const percent = Math.floor(((i+1)/totalChunk)*100);
                 document.getElementById('bar').style.width = percent+'%';
                 document.getElementById('tip').innerText = `已上传 ${percent}%`;
             }
 
-            // 上传完成合并文件
             document.getElementById('tip').innerText = '正在请求后端合并分片文件...';
             addLog("所有分片上传完毕，调用合并接口 /api/chunk/merge", 'log-info');
             const mergeRes = await fetch('/api/chunk/merge',{
@@ -615,15 +647,95 @@
                 headers:{'Content-Type':'application/json'}
             })
             const mergeData = await mergeRes.json();
-            if(mergeData.code === 200){
-                document.getElementById('tip').innerText = '✅ 文件上传合并完成！';
-                addLog("后端分片合并成功，完整文件生成", 'log-success');
-            }else{
-                document.getElementById('tip').innerText = mergeData.msg;
-                addLog(`合并失败：${mergeData.msg}`, 'log-warn');
-            }
-            // 全部流程结束，关闭数据流动画
+            document.getElementById('tip').innerText = mergeData.code === 200 ? '✅ 合并任务已后台执行，可下方表格查看最终状态' : mergeData.msg;
             toggleDataFlow(false);
+            // 上传完毕刷新测试数据表格
+            await loadRecordData();
+        }
+
+        // ==================== 性能表格、分页、导出CSV（全新逻辑，原有代码无修改） ====================
+        async function loadRecordData(){
+            try{
+                const resp = await fetch(`/api/test/records?page=${currentPage}&pageSize=${pageSize}`);
+                const {code,data} = await resp.json();
+                if(code !==200) throw new Error('数据加载失败');
+                const {list,total} = data;
+                allRecordList = list;
+                totalPage = Math.ceil(total / pageSize);
+                renderTable(list);
+                refreshPageBtn();
+            }catch(e){
+                document.getElementById('tableBody').innerHTML = `<tr><td colspan="9">数据加载异常：${e.message}</td></tr>`;
+            }
+        }
+        // 渲染表格
+        function renderTable(list){
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            if(list.length ===0){
+                tbody.innerHTML = '<tr><td colspan="9">暂无上传测试记录</td></tr>';
+                return;
+            }
+            const statusMap = {
+                waiting_merge:'<span class="status-wait">等待合并</span>',
+                merging:'<span class="status-merging">后台合并中</span>',
+                success:'<span class="status-success">合并完成</span>',
+                fail:'<span class="status-fail">合并失败</span>'
+            };
+            list.forEach(item=>{
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${item.file_md5.substring(0,18)}...</td>
+                    <td>${item.file_name}</td>
+                    <td>${formatFileSize(item.file_size)}</td>
+                    <td>${item.chunk_total}</td>
+                    <td>${item.use_time_ms || '-'}</td>
+                    <td>${item.max_memory_mb || '-'}</td>
+                    <td>${statusMap[item.task_status] || item.task_status}</td>
+                    <td>${item.create_time || '-'}</td>
+                    <td>${item.finish_time || '-'}</td>
+                `;
+                tbody.appendChild(tr);
+            })
+        }
+        // 分页切换
+        function changePage(step){
+            let newPage = currentPage + step;
+            if(newPage <1 || newPage>totalPage) return;
+            currentPage = newPage;
+            loadRecordData();
+        }
+        function refreshPageBtn(){
+            document.getElementById('pageText').innerText = `第${currentPage}页 / 共${totalPage}页`;
+            document.getElementById('prevBtn').disabled = currentPage <=1;
+            document.getElementById('nextBtn').disabled = currentPage >= totalPage;
+        }
+        // 导出CSV文件下载
+        function exportTableCsv(){
+            if(allRecordList.length ===0) return alert('暂无数据可导出');
+            const header = ["文件MD5","文件名","文件大小(字节)","总分片","耗时ms","峰值内存MB","任务状态","创建时间","完成时间"];
+            const rows = allRecordList.map(row=>[
+                row.file_md5,
+                row.file_name,
+                row.file_size,
+                row.chunk_total,
+                row.use_time_ms||'',
+                row.max_memory_mb||'',
+                row.task_status,
+                row.create_time||'',
+                row.finish_time||''
+            ]);
+            let csvText = header.join(',') + '\n';
+            rows.forEach(line=>{
+                const safeLine = line.map(cell=> `"${String(cell).replace(/"/g,'""')}"`);
+                csvText += safeLine.join(',') + '\n';
+            })
+            const blob = new Blob([csvText],{type:'text/csv;charset=utf-8;'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `分片上传性能测试数据_${new Date().getTime()}.csv`;
+            a.click();
+            URL.revokeObjectURL(a.href);
         }
     </script>
 </body>
